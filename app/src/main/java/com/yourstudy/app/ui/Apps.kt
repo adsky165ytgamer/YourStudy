@@ -38,3 +38,24 @@ fun launchApp(ctx: Context, pkg: String) {
         ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ?.let { ctx.startActivity(it) }
 }
+
+/** The phone's real home app (Pixel Launcher, One UI Home, ...), never Your Study or Settings' fallback. */
+fun realLauncher(ctx: Context): android.content.ComponentName? {
+    val pm = ctx.packageManager
+    val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+    fun ok(p: String) = p != ctx.packageName && p != "com.android.settings" && p != "android"
+    val def = pm.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo
+    if (def != null && ok(def.packageName)) return android.content.ComponentName(def.packageName, def.name)
+    val all = if (Build.VERSION.SDK_INT >= 33) pm.queryIntentActivities(home, PackageManager.ResolveInfoFlags.of(0))
+    else @Suppress("DEPRECATION") pm.queryIntentActivities(home, 0)
+    return all.map { it.activityInfo }.firstOrNull { ok(it.packageName) }
+        ?.let { android.content.ComponentName(it.packageName, it.name) }
+}
+
+fun launchRealLauncher(ctx: Context) {
+    val cn = realLauncher(ctx) ?: return
+    ctx.startActivity(
+        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setComponent(cn)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+}

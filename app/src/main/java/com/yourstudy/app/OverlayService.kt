@@ -19,6 +19,7 @@ import android.view.WindowManager
 import android.widget.TextView
 import androidx.core.app.ServiceCompat
 import com.yourstudy.app.ui.fmt
+import com.yourstudy.app.ui.launchRealLauncher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -80,6 +81,7 @@ class OverlayService : Service() {
         }
         val breakEnded = lastPhase == Phase.BREAK_5M && p == Phase.FOCUSING
         val justCompleted = p == Phase.COMPLETED && lastPhase != Phase.COMPLETED
+        if (lastPhase == Phase.FOCUSING && p == Phase.BREAK_5M) launchRealLauncher(this)
         if (breakEnded || justCompleted) openLauncher()
         lastPhase = p
         if (p == Phase.IDLE || p == Phase.COMPLETED) { hidePill(); stopSelf() }

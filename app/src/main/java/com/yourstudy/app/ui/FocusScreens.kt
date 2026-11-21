@@ -40,7 +40,6 @@ import kotlinx.coroutines.withContext
 @Composable
 fun FocusScreen(s: SessionUi) {
     val ctx = LocalContext.current
-    var confirm by remember { mutableStateOf(false) }
     val apps by produceState(emptyList<AppEntry>(), s.essential) {
         value = withContext(Dispatchers.IO) { loadLaunchable(ctx).filter { it.pkg in s.essential } }
     }
@@ -78,36 +77,11 @@ fun FocusScreen(s: SessionUi) {
             ) { items(apps, key = { it.pkg }) { AppTile(it) } }
         }
         Spacer(Modifier.height(12.dp))
-        PressPill(
-            onClick = { confirm = true },
-            onLongClick = { Session.startBreak() },
+        HoldPill(
+            label = if (s.breakUsed) "Break used" else "Hold to take a 5-min break",
             enabled = !s.breakUsed,
+            onTrigger = { Session.startBreak() },
             modifier = Modifier.fillMaxWidth(),
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-            contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-        ) {
-            Text(
-                if (s.breakUsed) "Break already used" else "Request 5-min break",
-                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
-            )
-        }
-        if (!s.breakUsed) {
-            Text(
-                "Tap to confirm, or long-press to start right away.",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-    }
-
-    if (confirm) {
-        AlertDialog(
-            onDismissRequest = { confirm = false },
-            title = { Text("Take a 5-minute break?") },
-            text = { Text("Your focus timer pauses and the whole phone unlocks for 5 minutes. You get one break per session.") },
-            confirmButton = { TextButton(onClick = { confirm = false; Session.startBreak() }) { Text("Start break") } },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Keep focusing") } },
         )
     }
 }

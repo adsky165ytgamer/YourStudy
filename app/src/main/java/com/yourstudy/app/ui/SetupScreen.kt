@@ -82,11 +82,9 @@ fun HomeShell() {
 
     val overlay = remember(refresh) { Perms.overlay(ctx) }
     val access = remember(refresh) { Perms.accessibility(ctx) }
-    val home = remember(refresh) { Perms.home(ctx) }
     val notif = remember(refresh) { Perms.notifications(ctx) }
-    val ready = overlay && access && home
+    val ready = overlay && access
 
-    val roleLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { refresh++ }
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { refresh++ }
 
     val apps by produceState(emptyList<AppEntry>(), Unit) {
@@ -102,7 +100,7 @@ fun HomeShell() {
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
                         if (!ready) {
                             Text(
-                                "Grant the three required permissions to start.",
+                                "Grant the two required permissions to start.",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.padding(bottom = 8.dp).fillMaxWidth(),
@@ -162,19 +160,13 @@ fun HomeShell() {
                 item { TimerCard(minutes) { minutes = it } }
                 item {
                     PermissionCard(
-                        overlay, access, home, notif,
+                        overlay, access, notif,
                         onOverlay = {
                             ctx.startActivity(
                                 Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}"))
                             )
                         },
                         onAccess = { ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
-                        onHome = {
-                            val rm = ctx.getSystemService(RoleManager::class.java)
-                            if (rm.isRoleAvailable(RoleManager.ROLE_HOME))
-                                roleLauncher.launch(rm.createRequestRoleIntent(RoleManager.ROLE_HOME))
-                            else ctx.startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
-                        },
                         onNotif = {
                             if (Build.VERSION.SDK_INT >= 33)
                                 notifLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -296,8 +288,8 @@ private fun TimerCard(minutes: Int, onMinutes: (Int) -> Unit) {
 
 @Composable
 private fun PermissionCard(
-    overlay: Boolean, access: Boolean, home: Boolean, notif: Boolean,
-    onOverlay: () -> Unit, onAccess: () -> Unit, onHome: () -> Unit, onNotif: () -> Unit,
+    overlay: Boolean, access: Boolean, notif: Boolean,
+    onOverlay: () -> Unit, onAccess: () -> Unit, onNotif: () -> Unit,
 ) {
     Card(
         shape = RoundedCornerShape(32.dp),
@@ -307,7 +299,6 @@ private fun PermissionCard(
             Text("Permissions", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             PermRow("Display over other apps", "Shows the floating countdown pill", overlay, onOverlay)
             PermRow("Accessibility service", "Keeps you inside your essential apps", access, onAccess)
-            PermRow("Default home app", "Your Study becomes the launcher", home, onHome)
             if (Build.VERSION.SDK_INT >= 33) PermRow("Notifications (optional)", "Shows the session notification", notif, onNotif)
         }
     }
