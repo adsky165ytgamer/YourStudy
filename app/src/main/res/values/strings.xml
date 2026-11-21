@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Your Study</string>
+    <string name="guard_description">Keeps you inside Your Study and your chosen essential apps while a focus session is running. It only reads which app is in the foreground.</string>
+</resources>
