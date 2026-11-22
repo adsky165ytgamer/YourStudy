@@ -12,8 +12,8 @@ android {
         applicationId = "com.yourstudy.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 3
-        versionName = "2.1"
+        versionCode = 4
+        versionName = "3.0"
     }
     signingConfigs {
         create("release") {
