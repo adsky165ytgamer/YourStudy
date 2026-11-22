@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "appLockdown": {
-    "enabled": true,
+    "enabled": false,
     "title": "Temporary Maintenance",
     "message": "YourStudy is undergoing a quick configuration update."
   },
