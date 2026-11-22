@@ -21,7 +21,7 @@ class GuardService : AccessibilityService() {
         if (cls.startsWith("android.widget.") || cls.startsWith("android.view.")) return
 
         val now = SystemClock.elapsedRealtime()
-        if (now - lastBounce < 300) return
+        if (now - lastBounce < 500) return
         lastBounce = now
         startActivity(
             Intent(this, MainActivity::class.java)

@@ -81,7 +81,7 @@ class OverlayService : Service() {
         }
         val breakEnded = lastPhase == Phase.BREAK_5M && p == Phase.FOCUSING
         val justCompleted = p == Phase.COMPLETED && lastPhase != Phase.COMPLETED
-        if (lastPhase == Phase.FOCUSING && p == Phase.BREAK_5M) launchRealLauncher(this)
+        if (lastPhase == Phase.FOCUSING && p == Phase.BREAK_5M) { if (!launchRealLauncher(this)) openLauncher() }
         if (breakEnded || justCompleted) openLauncher()
         lastPhase = p
         if (p == Phase.IDLE || p == Phase.COMPLETED) { hidePill(); stopSelf() }

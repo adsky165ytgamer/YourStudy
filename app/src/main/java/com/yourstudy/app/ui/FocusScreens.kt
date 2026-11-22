@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,7 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun FocusScreen(s: SessionUi) {
+fun FocusScreen(s: SessionUi, onOpenNotes: () -> Unit) {
     val ctx = LocalContext.current
     val apps by produceState(emptyList<AppEntry>(), s.essential) {
         value = withContext(Dispatchers.IO) { loadLaunchable(ctx).filter { it.pkg in s.essential } }
@@ -77,6 +78,8 @@ fun FocusScreen(s: SessionUi) {
             ) { items(apps, key = { it.pkg }) { AppTile(it) } }
         }
         Spacer(Modifier.height(12.dp))
+        FilledTonalButton(onClick = onOpenNotes, modifier = Modifier.fillMaxWidth()) { Text("Voice notes") }
+        Spacer(Modifier.height(8.dp))
         HoldPill(
             label = if (s.breakUsed) "Break used" else "Hold to take a 5-min break",
             enabled = !s.breakUsed,
@@ -87,7 +90,7 @@ fun FocusScreen(s: SessionUi) {
 }
 
 @Composable
-fun BreakScreen(s: SessionUi) {
+fun BreakScreen(s: SessionUi, onOpenNotes: () -> Unit) {
     val ctx = LocalContext.current
     var giveUp by remember { mutableStateOf(false) }
     val apps by produceState(emptyList<AppEntry>(), Unit) {
@@ -124,6 +127,8 @@ fun BreakScreen(s: SessionUi) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) { items(apps, key = { it.pkg }) { AppTile(it) } }
         Spacer(Modifier.height(12.dp))
+        FilledTonalButton(onClick = onOpenNotes, modifier = Modifier.fillMaxWidth()) { Text("Voice notes") }
+        Spacer(Modifier.height(8.dp))
         PressPill(onClick = { Session.endBreak() }, modifier = Modifier.fillMaxWidth()) {
             Text("End break & resume focus", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }

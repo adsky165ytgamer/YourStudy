@@ -37,6 +37,7 @@ object Session {
     private var breakEndAt = 0L
     private var pausedFocusRemainingMs = 0L
     private var startedWall = 0L
+    val sessionStartedAt: Long get() = startedWall
 
     fun start(ctx: Context, minutes: Int, packages: Set<String>) {
         val ms = minutes * 60_000L
@@ -95,7 +96,9 @@ object Session {
         val remaining = if (u.phase == Phase.FOCUSING)
             (focusEndAt - SystemClock.elapsedRealtime()).coerceAtLeast(0) else pausedFocusRemainingMs
         val focused = (u.plannedMs - remaining).coerceIn(0, u.plannedMs)
-        Store.addLog(LogEntry(startedWall, (u.plannedMs / 60_000).toInt(), focused, u.breakUsed, completed))
+        val entry = LogEntry(startedWall, (u.plannedMs / 60_000).toInt(), focused, u.breakUsed, completed)
+        Store.addLog(entry)
+        Pairing.onLog(entry)
         _ui.value = if (completed)
             u.copy(phase = Phase.COMPLETED, focusRemainingMs = 0, breakRemainingMs = 0, lastFocusedMs = focused)
         else SessionUi()

@@ -11,8 +11,5 @@ import androidx.compose.ui.platform.LocalContext
 fun YourStudyTheme(content: @Composable () -> Unit) {
     val ctx = LocalContext.current
     val scheme = if (isSystemInDarkTheme()) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-    MaterialTheme(
-        colorScheme = scheme,
-        content = content,
-    )
+    MaterialTheme(colorScheme = scheme, content = content)
 }

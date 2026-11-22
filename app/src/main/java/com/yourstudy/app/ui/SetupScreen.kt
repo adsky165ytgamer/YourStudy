@@ -27,6 +27,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -71,7 +73,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 @Composable
-fun HomeShell() {
+fun HomeShell(onOpenNotes: () -> Unit) {
     val ctx = LocalContext.current
     val haptic = LocalHapticFeedback.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -133,12 +135,22 @@ fun HomeShell() {
                         selected = tab == 1, onClick = { tab = 1 },
                         icon = { Icon(Icons.AutoMirrored.Filled.List, null) }, label = { Text("Log") },
                     )
+                    NavigationBarItem(
+                        selected = tab == 2, onClick = { tab = 2 },
+                        icon = { Icon(Icons.Default.Person, null) }, label = { Text("Family") },
+                    )
+                    NavigationBarItem(
+                        selected = false, onClick = onOpenNotes,
+                        icon = { Icon(Icons.Default.Create, null) }, label = { Text("Notes") },
+                    )
                 }
             }
         }
     ) { pad ->
         if (tab == 1) {
             LogTab(pad)
+        } else if (tab == 2) {
+            PairTab(pad)
         } else {
             LazyColumn(
                 Modifier.fillMaxSize(),

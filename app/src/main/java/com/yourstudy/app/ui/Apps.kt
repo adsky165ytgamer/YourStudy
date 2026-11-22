@@ -52,10 +52,12 @@ fun realLauncher(ctx: Context): android.content.ComponentName? {
         ?.let { android.content.ComponentName(it.packageName, it.name) }
 }
 
-fun launchRealLauncher(ctx: Context) {
-    val cn = realLauncher(ctx) ?: return
-    ctx.startActivity(
-        Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setComponent(cn)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    )
+fun launchRealLauncher(ctx: Context): Boolean {
+    val cn = realLauncher(ctx) ?: return false
+    return runCatching {
+        ctx.startActivity(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setComponent(cn)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }.isSuccess
 }

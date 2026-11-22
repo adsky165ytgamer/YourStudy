@@ -24,4 +24,24 @@ object Perms {
 
     fun notifications(c: Context) = Build.VERSION.SDK_INT < 33 ||
         c.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    fun bluetoothOn(c: Context) = c.getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter?.isEnabled == true
+
+    @Suppress("DEPRECATION")
+    fun wifiOn(c: Context) = c.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)?.isWifiEnabled == true
+
+    fun nearbyPerms(parent: Boolean): Array<String> {
+        val l = mutableListOf(
+            android.Manifest.permission.BLUETOOTH_ADVERTISE,
+            android.Manifest.permission.BLUETOOTH_CONNECT,
+            android.Manifest.permission.BLUETOOTH_SCAN,
+        )
+        if (Build.VERSION.SDK_INT >= 33) l += android.Manifest.permission.NEARBY_WIFI_DEVICES
+        else l += android.Manifest.permission.ACCESS_FINE_LOCATION
+        if (parent) l += android.Manifest.permission.CAMERA
+        return l.toTypedArray()
+    }
+
+    fun hasAll(c: Context, p: Array<String>) =
+        p.all { c.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
 }

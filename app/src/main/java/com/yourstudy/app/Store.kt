@@ -24,7 +24,7 @@ object Store {
 
     fun init(ctx: Context) {
         prefs = ctx.getSharedPreferences("your_study", Context.MODE_PRIVATE)
-        _log.value = readLog()
+        _log.value = readLog(); loadPeerLogs(); loadNotes()
     }
 
     var essentials: Set<String>
@@ -34,6 +34,86 @@ object Store {
     var minutes: Int
         get() = prefs.getInt("minutes", 25)
         set(v) { prefs.edit().putInt("minutes", v).apply() }
+
+    var role: Role
+        get() = runCatching { Role.valueOf(prefs.getString("role", "SELF_STUDY")!!) }.getOrDefault(Role.SELF_STUDY)
+        set(v) { prefs.edit().putString("role", v.name).apply() }
+
+    val deviceId: String
+        get() = prefs.getString("did", null)
+            ?: java.util.UUID.randomUUID().toString().also { prefs.edit().putString("did", it).apply() }
+
+    var peerId: String?
+        get() = prefs.getString("peerId", null)
+        set(v) { prefs.edit().putString("peerId", v).apply() }
+    var peerName: String?
+        get() = prefs.getString("peerName", null)
+        set(v) { prefs.edit().putString("peerName", v).apply() }
+    var secret: String?
+        get() = prefs.getString("secret", null)
+        set(v) { prefs.edit().putString("secret", v).apply() }
+
+    fun unpair() {
+        prefs.edit().remove("peerId").remove("peerName").remove("secret").remove("pending").remove("peerlogs").apply()
+        _peerLogs.value = emptyList()
+    }
+
+    private val _peerLogs = MutableStateFlow<List<LogEntry>>(emptyList())
+    val peerLogs: StateFlow<List<LogEntry>> = _peerLogs.asStateFlow()
+    private fun enc(l: List<LogEntry>) = JSONArray().also { a -> l.forEach { a.put(it.toJson()) } }.toString()
+    private fun dec(s: String?): List<LogEntry> = runCatching {
+        val a = JSONArray(s ?: "[]"); (0 until a.length()).map { logFromJson(a.getJSONObject(it)) }
+    }.getOrDefault(emptyList())
+    fun pendingLogs() = dec(prefs.getString("pending", null))
+    fun queueLog(e: LogEntry) { prefs.edit().putString("pending", enc(pendingLogs() + e)).apply() }
+    fun clearPending() { prefs.edit().remove("pending").apply() }
+    fun addPeerLogs(l: List<LogEntry>) {
+        val merged = (l + _peerLogs.value).distinctBy { it.startedAt }.sortedByDescending { it.startedAt }
+        _peerLogs.value = merged
+        prefs.edit().putString("peerlogs", enc(merged)).apply()
+    }
+    private fun loadPeerLogs() { _peerLogs.value = dec(prefs.getString("peerlogs", null)) }
+
+    // ---- Voice notes (offline, local) ----
+    private val _notes = MutableStateFlow<List<VoiceNote>>(emptyList())
+    val notes: StateFlow<List<VoiceNote>> = _notes.asStateFlow()
+
+    var voiceLang: String
+        get() = prefs.getString("vlang", null) ?: java.util.Locale.getDefault().toLanguageTag()
+        set(v) { prefs.edit().putString("vlang", v).apply() }
+
+    private fun loadNotes() {
+        _notes.value = runCatching {
+            val a = JSONArray(prefs.getString("notes", "[]"))
+            (0 until a.length()).map {
+                val o = a.getJSONObject(it)
+                VoiceNote(
+                    o.getString("id"), o.getString("c"), o.getString("l"), o.getLong("cr"), o.getLong("up"),
+                    o.getBoolean("f"), if (o.has("fs")) o.getLong("fs") else null,
+                )
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun persistNotes() {
+        val a = JSONArray()
+        _notes.value.forEach {
+            a.put(JSONObject().put("id", it.id).put("c", it.content).put("l", it.languageTag)
+                .put("cr", it.createdAt).put("up", it.updatedAt).put("f", it.wasCapturedDuringFocus)
+                .also { o -> it.focusSessionStart?.let { s -> o.put("fs", s) } })
+        }
+        prefs.edit().putString("notes", a.toString()).apply()
+    }
+
+    fun saveNote(n: VoiceNote) {
+        _notes.value = (_notes.value.filter { it.id != n.id } + n).sortedByDescending { it.updatedAt }
+        persistNotes()
+    }
+
+    fun deleteNote(id: String) {
+        _notes.value = _notes.value.filter { it.id != id }
+        persistNotes()
+    }
 
     fun addLog(e: LogEntry) {
         val list = listOf(e) + _log.value
@@ -56,3 +136,21 @@ object Store {
         }
     }.getOrDefault(emptyList())
 }
+
+enum class Role { SELF_STUDY, CHILD, PARENT }
+
+fun LogEntry.toJson(): JSONObject =
+    JSONObject().put("s", startedAt).put("p", plannedMin).put("f", focusedMs).put("b", breakUsed).put("c", completed)
+
+fun logFromJson(o: JSONObject) =
+    LogEntry(o.getLong("s"), o.getInt("p"), o.getLong("f"), o.getBoolean("b"), o.getBoolean("c"))
+
+data class VoiceNote(
+    val id: String,
+    val content: String,
+    val languageTag: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val wasCapturedDuringFocus: Boolean,
+    val focusSessionStart: Long?,
+)
