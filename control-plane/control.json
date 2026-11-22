@@ -1,31 +1,5 @@
 {
   "schemaVersion": 1,
-  "appLockdown": { "enabled": false, "title": "Temporary Maintenance", "message": "YourStudy is undergoing a quick configuration update." },
-  "appUpdate": { "enabled": false, "latestVersionCode": 2, "minSupportedVersionCode": 1, "versionName": "1.1.0", "forceUpdate": false,
-    "changelog": "Added server-driven controls and Voice Notes refinements.", "apkUrl": "https://example.com/YourStudy-release.apk", "sha256": "" },
-  "features": {
-    "voice_notes": { "enabled": true, "locked": false, "badge": "BETA", "allowDuringFocus": true, "lockReason": "Voice Notes is temporarily disabled." },
-    "focus_mode": { "enabled": true, "locked": false, "minMinutes": 1, "maxMinutes": 240, "strictGuard": true },
-    "family_pairing": { "enabled": true, "locked": false },
-    "guard_service": { "enabled": true },
-    "overlay_service": { "enabled": true }
-  },
-  "uiControls": {
-    "btn_start_focus": { "visible": true, "enabled": true, "label": null, "badge": null, "interceptPopupId": null },
-    "section_voice_notes": { "visible": true, "enabled": true, "label": "Voice Notes", "badge": "BETA", "interceptPopupId": null }
-  },
-  "popups": [
-    { "id": "feature_notice_1", "enabled": false, "trigger": "on_launch", "targetScreen": "global", "dismissible": true, "showOnce": true,
-      "title": "Notice", "message": "Check out the latest updates in YourStudy.", "primaryLabel": "OK", "primaryAction": "dismiss", "actionTarget": null }
-  ]
-}
-
-
-
-
-
-{
-  "schemaVersion": 1,
   "appLockdown": {
     "enabled": false,
     "title": "Temporary Maintenance",
