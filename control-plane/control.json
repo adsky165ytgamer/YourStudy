@@ -7,13 +7,13 @@
   },
   "appUpdate": {
     "enabled": false,
-    "latestVersionCode": 5,
+    "latestVersionCode": 7,
     "minSupportedVersionCode": 1,
-    "versionName": "5.0.0",
+    "versionName": "5.5.0",
     "forceUpdate": false,
     "changelog": "Added server-driven controls and Voice Notes refinements.",
-    "apkUrl": "https://github.com/adsky165ytgamer/YourStudy/releases/download/v5.0.0/YourStudy-v5.0.0-release-signed.apk",
-    "sha256": "41df5ed131cc8738fa5d6e044894e44edc10e06696455f9f1ef399665869f118"
+    "apkUrl": "https://github.com/adsky165ytgamer/YourStudy/releases/download/v5.5.0/YourStudy-v5.5.0-release-signed.apk",
+    "sha256": "09c6695a0e5053d09a256866b8797b6b0c29ea4993d97e10c90947a4c6f5d006"
   },
   "features": {
     "voice_notes": {
