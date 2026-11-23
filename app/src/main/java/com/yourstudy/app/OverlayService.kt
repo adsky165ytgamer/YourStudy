@@ -88,6 +88,7 @@ class OverlayService : Service() {
     }
 
     private fun showPill(u: SessionUi) {
+        if (!RemoteControl.config.value.feature("overlay_service").enabled) { hidePill(); return }
         val brk = u.phase == Phase.BREAK_5M
         val tv = pill ?: createPill().also {
             try { wm.addView(it, lp); pill = it } catch (e: Exception) { return }

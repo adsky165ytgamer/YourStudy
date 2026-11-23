@@ -44,6 +44,7 @@ object Session {
         focusEndAt = SystemClock.elapsedRealtime() + ms
         startedWall = System.currentTimeMillis()
         _ui.value = SessionUi(Phase.FOCUSING, ms, ms, 0, false, packages)
+        WellbeingTracker.onStart(packages)
         ctx.startForegroundService(Intent(ctx, OverlayService::class.java))
     }
 
@@ -53,6 +54,7 @@ object Session {
         val now = SystemClock.elapsedRealtime()
         pausedFocusRemainingMs = (focusEndAt - now).coerceAtLeast(0)
         breakEndAt = now + BREAK_MS
+        WellbeingTracker.onBreak(true)
         _ui.value = u.copy(
             phase = Phase.BREAK_5M, breakUsed = true,
             breakRemainingMs = BREAK_MS, focusRemainingMs = pausedFocusRemainingMs,
@@ -63,6 +65,7 @@ object Session {
         val u = _ui.value
         if (u.phase != Phase.BREAK_5M) return
         focusEndAt = SystemClock.elapsedRealtime() + pausedFocusRemainingMs
+        WellbeingTracker.onBreak(false)
         _ui.value = u.copy(
             phase = Phase.FOCUSING, breakRemainingMs = 0, focusRemainingMs = pausedFocusRemainingMs,
         )
@@ -70,6 +73,7 @@ object Session {
 
     fun tick() {
         val now = SystemClock.elapsedRealtime()
+        WellbeingTracker.tick()
         when (_ui.value.phase) {
             Phase.FOCUSING -> {
                 val rem = focusEndAt - now
@@ -98,6 +102,7 @@ object Session {
         val focused = (u.plannedMs - remaining).coerceIn(0, u.plannedMs)
         val entry = LogEntry(startedWall, (u.plannedMs / 60_000).toInt(), focused, u.breakUsed, completed)
         Store.addLog(entry)
+        WellbeingTracker.onFinish(focused, completed)
         Pairing.onLog(entry)
         _ui.value = if (completed)
             u.copy(phase = Phase.COMPLETED, focusRemainingMs = 0, breakRemainingMs = 0, lastFocusedMs = focused)

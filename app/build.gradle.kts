@@ -12,26 +12,10 @@ android {
         applicationId = "com.yourstudy.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 4
-        versionName = "3.0"
+        versionCode = 5
+        versionName = "5.0.0"
     }
-    signingConfigs {
-        create("release") {
-            val keystorePath = providers.gradleProperty("releaseStoreFile").orNull
-            if (keystorePath != null) {
-                storeFile = file(keystorePath)
-                storePassword = providers.gradleProperty("releaseStorePassword").orNull
-                keyAlias = providers.gradleProperty("releaseKeyAlias").orNull
-                keyPassword = providers.gradleProperty("releaseKeyPassword").orNull
-            }
-        }
-    }
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
-        }
-    }
+    buildTypes { release { isMinifyEnabled = false } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

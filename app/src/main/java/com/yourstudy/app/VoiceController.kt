@@ -10,6 +10,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
@@ -34,6 +35,10 @@ class VoiceController(context: Context) {
         private set
     var message by mutableStateOf<String?>(null)
     var languageTag by mutableStateOf(Store.voiceLang)
+        private set
+
+    /** 0..1 microphone level for the waveform. */
+    var level by mutableFloatStateOf(0f)
         private set
 
     val combined: String get() = join(committed, partial)
@@ -63,6 +68,7 @@ class VoiceController(context: Context) {
         keepListening = false
         generation++
         handler.removeCallbacks(restart)
+        level = 0f
         commitPartial()
         release()
     }
@@ -153,7 +159,7 @@ class VoiceController(context: Context) {
 
         override fun onReadyForSpeech(p: Bundle?) {}
         override fun onBeginningOfSpeech() {}
-        override fun onRmsChanged(rms: Float) {}
+        override fun onRmsChanged(rms: Float) { if (live()) level = ((rms + 2f) / 12f).coerceIn(0f, 1f) }
         override fun onBufferReceived(buf: ByteArray?) {}
         override fun onEndOfSpeech() {}
         override fun onEvent(type: Int, p: Bundle?) {}

@@ -74,6 +74,15 @@ object Store {
     }
     private fun loadPeerLogs() { _peerLogs.value = dec(prefs.getString("peerlogs", null)) }
 
+    // ---- Remote control cache + one-time popup tracking ----
+    var controlJson: String?
+        get() = prefs.getString("control", null)
+        set(v) { prefs.edit().putString("control", v).apply() }
+    fun popupShown(id: String) = id in (prefs.getStringSet("shown", emptySet()) ?: emptySet())
+    fun markPopupShown(id: String) {
+        prefs.edit().putStringSet("shown", (prefs.getStringSet("shown", emptySet()) ?: emptySet()) + id).apply()
+    }
+
     // ---- Voice notes (offline, local) ----
     private val _notes = MutableStateFlow<List<VoiceNote>>(emptyList())
     val notes: StateFlow<List<VoiceNote>> = _notes.asStateFlow()

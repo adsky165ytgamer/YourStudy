@@ -7,9 +7,9 @@
   },
   "appUpdate": {
     "enabled": false,
-    "latestVersionCode": 2,
+    "latestVersionCode": 5,
     "minSupportedVersionCode": 1,
-    "versionName": "1.1.0",
+    "versionName": "5.0.0",
     "forceUpdate": false,
     "changelog": "Added server-driven controls and Voice Notes refinements.",
     "apkUrl": "https://example.com/YourStudy-release.apk",
@@ -31,7 +31,7 @@
       "strictGuard": true
     },
     "family_pairing": {
-      "enabled": false,
+      "enabled": true,
       "locked": false
     },
     "guard_service": {
@@ -39,6 +39,23 @@
     },
     "overlay_service": {
       "enabled": true
+    },
+    "study_planner": {
+      "enabled": true,
+      "locked": false,
+      "badge": null,
+      "lockReason": null
+    },
+    "wellbeing_stats": {
+      "enabled": true,
+      "locked": false,
+      "doomScrollThreshold": 12,
+      "doomScrollWindowSec": 45
+    },
+    "device_admin": {
+      "enabled": true,
+      "locked": false,
+      "allowAutoLockOnBypass": true
     }
   },
   "uiControls": {
@@ -54,6 +71,20 @@
       "enabled": true,
       "label": "Voice Notes",
       "badge": "BETA",
+      "interceptPopupId": null
+    },
+    "section_study_planner": {
+      "visible": true,
+      "enabled": true,
+      "label": null,
+      "badge": null,
+      "interceptPopupId": null
+    },
+    "section_wellbeing": {
+      "visible": true,
+      "enabled": true,
+      "label": null,
+      "badge": null,
       "interceptPopupId": null
     }
   },

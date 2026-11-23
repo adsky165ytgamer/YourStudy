@@ -191,13 +191,13 @@ object Pairing {
     private fun handleAuthed(o: JSONObject) {
         when (o.getString("t")) {
             "START_SESSION" -> { // child
-                val m = o.optInt("minutes", Store.minutes).coerceIn(1, 240)
+                val m = o.optInt("minutes", Store.minutes).coerceIn(RemoteControl.minutesRange())
                 Store.minutes = m
                 if (Store.role == Role.CHILD && Session.ui.value.phase == Phase.IDLE &&
                     Perms.overlay(app) && Perms.accessibility(app)
                 ) Session.start(app, m, Store.essentials)
             }
-            "UPDATE_RULES" -> Store.minutes = o.optInt("minutes", Store.minutes).coerceIn(1, 240)
+            "UPDATE_RULES" -> Store.minutes = o.optInt("minutes", Store.minutes).coerceIn(RemoteControl.minutesRange())
             "SESSION_LOG_SYNC" -> { // parent
                 val a = o.getJSONArray("entries")
                 Store.addPeerLogs((0 until a.length()).map { logFromJson(a.getJSONObject(it)) })
