@@ -1,0 +1,53 @@
+name: Validate MATH1 release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate release body and APK assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, subprocess, sys
+          repo = os.environ['REPOSITORY']
+          tag = os.environ['RELEASE_TAG']
+          release = json.loads(subprocess.check_output([
+              'gh', 'api', f'repos/{repo}/releases/tags/{tag}'
+          ]))
+          if release.get('draft') or release.get('prerelease') is None:
+              raise SystemExit('Could not read a published release')
+          body = release.get('body') or ''
+          match = re.search(r'<!--\\s*math1\\s*(\{.*?\})\\s*-->', body, re.S)
+          if not match:
+              raise SystemExit('Release body is missing the MATH1 metadata block')
+          metadata = json.loads(match.group(1))
+          if not isinstance(metadata.get('versionName'), str) or not metadata['versionName']:
+              raise SystemExit('MATH1 versionName is required')
+          if not isinstance(metadata.get('versionCode'), int) or metadata['versionCode'] <= 0:
+              raise SystemExit('MATH1 versionCode must be a positive integer')
+          if not isinstance(metadata.get('minSdk'), int) or not 1 <= metadata['minSdk'] <= 100:
+              raise SystemExit('MATH1 minSdk must be between 1 and 100')
+          assets = [a for a in release.get('assets', []) if a.get('name', '').lower().endswith('.apk')]
+          if len(assets) != 1:
+              raise SystemExit(f'Expected exactly one APK asset, found {len(assets)}')
+          asset = assets[0]
+          if asset.get('state') != 'uploaded' or asset.get('size', 0) <= 0:
+              raise SystemExit('APK asset must be uploaded and non-empty')
+          if not asset.get('browser_download_url', '').startswith('https://github.com/'):
+              raise SystemExit('APK asset must use an HTTPS GitHub download URL')
+          digest = metadata.get('sha256')
+          if digest is not None and not re.fullmatch(r'[0-9a-fA-F]{64}', digest):
+              raise SystemExit('MATH1 sha256 must be 64 hexadecimal characters')
+          print(f'Validated MATH1 release {tag}: {asset["name"]}')
+          PY

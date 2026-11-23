@@ -3,6 +3,7 @@ package com.yourstudy.app
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
@@ -14,8 +15,12 @@ import java.security.MessageDigest
 
 /** Direct APK self-update. Updates only install if signed with the same keystore as the installed build. */
 object Updater {
-    fun installedVersionCode(ctx: Context): Long =
-        runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).longVersionCode }.getOrDefault(0L)
+    fun installedVersionCode(ctx: Context): Long = runCatching {
+        val info = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+        if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else {
+            @Suppress("DEPRECATION") info.versionCode.toLong()
+        }
+    }.getOrDefault(0L)
 
     fun canInstall(ctx: Context) = ctx.packageManager.canRequestPackageInstalls()
 
@@ -26,12 +31,22 @@ object Updater {
         )
     }
 
-    suspend fun download(ctx: Context, u: AppUpdateConfig, onProgress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
-        require(u.apkUrl.startsWith("https://")) { "Update URL must be https" }
+    suspend fun download(ctx: Context, u: AppUpdateConfig, onProgress: (Float) -> Unit): File =
+        download(ctx, u.apkUrl, u.sha256, u.latestVersionCode, onProgress)
+
+    suspend fun download(
+        ctx: Context,
+        downloadUrl: String,
+        expectedSha256: String?,
+        expectedVersionCode: Long,
+        onProgress: (Float) -> Unit,
+    ): File = withContext(Dispatchers.IO) {
+        require(downloadUrl.startsWith("https://")) { "Update URL must be https" }
+        require(expectedVersionCode in 1L..Int.MAX_VALUE.toLong()) { "Invalid update version code" }
         val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
-        val f = File(dir, "YourStudy-${u.latestVersionCode}.apk")
-        val c = URL(u.apkUrl).openConnection() as HttpURLConnection
+        val f = File(dir, "YourStudy-$expectedVersionCode.apk")
+        val c = URL(downloadUrl).openConnection() as HttpURLConnection
         c.connectTimeout = 15_000; c.readTimeout = 30_000; c.instanceFollowRedirects = true
         try {
             check(c.responseCode == 200) { "Server returned ${c.responseCode}" }
@@ -47,10 +62,18 @@ object Updater {
                     }
                 }
             }
-            if (u.sha256.isNotBlank()) {
+            if (!expectedSha256.isNullOrBlank()) {
                 val hex = md.digest().joinToString("") { "%02x".format(it) }
-                if (!hex.equals(u.sha256.trim(), ignoreCase = true)) { f.delete(); error("Checksum mismatch") }
+                if (!hex.equals(expectedSha256.trim(), ignoreCase = true)) { f.delete(); error("Checksum mismatch") }
             }
+            val archive = ctx.packageManager.getPackageArchiveInfo(f.absolutePath, 0)
+                ?: error("Downloaded file is not a valid APK")
+            check(archive.packageName == ctx.packageName) { "Downloaded APK belongs to a different application" }
+            val downloadedCode = if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else {
+                @Suppress("DEPRECATION") archive.versionCode.toLong()
+            }
+            check(downloadedCode == expectedVersionCode) { "Downloaded APK version does not match MATH1 metadata" }
+            check(downloadedCode > installedVersionCode(ctx)) { "Downloaded APK is not newer than the installed version" }
         } finally { c.disconnect() }
         f
     }

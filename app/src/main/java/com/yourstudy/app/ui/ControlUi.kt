@@ -25,6 +25,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.yourstudy.app.AppUpdateConfig
+import com.yourstudy.app.Math1CheckState
+import com.yourstudy.app.Math1Release
+import com.yourstudy.app.Math1UpdateClient
 import com.yourstudy.app.Phase
 import com.yourstudy.app.PopupConfig
 import com.yourstudy.app.Popups
@@ -58,6 +61,7 @@ fun ControlHost(phase: Phase) {
     val launchSeen by Popups.launchSeen.collectAsStateWithLifecycle()
     val screenSeen by Popups.screenSeen.collectAsStateWithLifecycle()
     val updateDismissed by Popups.updateDismissed.collectAsStateWithLifecycle()
+    val math1State by Math1UpdateClient.state.collectAsStateWithLifecycle()
     LaunchedEffect(screen) { Popups.screenSeen.value = emptySet() }
 
     val idle = phase == Phase.IDLE || phase == Phase.COMPLETED
@@ -69,6 +73,12 @@ fun ControlHost(phase: Phase) {
     }
 
     val installed = remember { Updater.installedVersionCode(ctx) }
+    val math1Release = (math1State as? Math1CheckState.Success)?.stable
+        ?.takeIf { it.versionCode.toLong() > installed }
+    if (math1Release != null && idle && !updateDismissed) {
+        Math1UpdateDialog(math1Release) { Popups.updateDismissed.value = true }
+        return
+    }
     val u = cfg.appUpdate
     val needs = u.enabled && u.latestVersionCode > installed
     val force = needs && (installed < u.minSupportedVersionCode || u.forceUpdate)
@@ -110,6 +120,47 @@ fun ControlHost(phase: Phase) {
             } else null,
         )
     }
+}
+
+@Composable
+private fun Math1UpdateDialog(release: Math1Release, onLater: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onLater() },
+        title = { Text("Update ${release.versionName}") },
+        text = {
+            Column {
+                if (release.releaseNotes.isNotBlank()) Text(release.releaseNotes)
+                if (busy) {
+                    Spacer(Modifier.height(12.dp))
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                }
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp)) }
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy, onClick = {
+                error = null
+                if (!Updater.canInstall(ctx)) {
+                    error = "Allow installs, then retry."
+                    Updater.openInstallSettings(ctx)
+                } else {
+                    busy = true
+                    scope.launch {
+                        runCatching {
+                            Updater.download(ctx, release.downloadUrl, release.sha256, release.versionCode.toLong()) { progress = it }
+                        }.onSuccess { busy = false; Updater.install(ctx, it) }
+                            .onFailure { busy = false; error = "Download failed: ${it.message ?: "unknown error"}" }
+                    }
+                }
+            }) { Text("Update") }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onLater) { Text("Later") } },
+    )
 }
 
 @Composable

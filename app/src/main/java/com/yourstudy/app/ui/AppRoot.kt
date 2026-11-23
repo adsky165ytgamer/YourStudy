@@ -10,11 +10,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.yourstudy.app.Phase
+import com.yourstudy.app.Math1UpdateClient
 import com.yourstudy.app.RemoteControl
 import com.yourstudy.app.ScheduleLaunch
 import com.yourstudy.app.Screens
@@ -24,6 +26,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun AppRoot() {
     val s by Session.ui.collectAsStateWithLifecycle()
+    val ctx = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     BackHandler(enabled = s.phase == Phase.FOCUSING || s.phase == Phase.BREAK_5M) { /* no escape */ }
     // A schedule never touches a running or just-finished session.
@@ -33,7 +36,11 @@ fun AppRoot() {
     // No throttle: pull control.json every 30 s while the app is on screen.
     LaunchedEffect(lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) { RemoteControl.refresh(); delay(30_000) }
+            while (true) {
+                RemoteControl.refresh()
+                Math1UpdateClient.refresh(ctx)
+                delay(30_000)
+            }
         }
     }
     LaunchedEffect(s.phase) {
