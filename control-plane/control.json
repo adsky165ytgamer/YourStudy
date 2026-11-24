@@ -19,7 +19,7 @@
     "voice_notes": {
       "enabled": true,
       "locked": false,
-      "badge": "BETA",
+      "badge": null,
       "allowDuringFocus": true,
       "lockReason": "Voice Notes is temporarily disabled."
     },
