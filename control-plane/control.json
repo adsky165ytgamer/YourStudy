@@ -83,7 +83,7 @@
       "visible": true,
       "enabled": true,
       "label": "Voice Notes",
-      "badge": "BETA",
+      "badge": null,
       "interceptPopupId": null
     },
     "section_study_planner": {
