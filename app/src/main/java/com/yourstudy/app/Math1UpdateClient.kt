@@ -2,7 +2,11 @@ package com.yourstudy.app
 
 import android.content.Context
 import android.os.Build
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,22 +50,69 @@ object Math1UpdateClient {
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val READ_TIMEOUT_MS = 15_000
     private const val MIN_RETRY_INTERVAL_MS = 6 * 60 * 60 * 1_000L
+    private const val MANUAL_DEBOUNCE_MS = 5_000L
 
     private val _state = MutableStateFlow<Math1CheckState>(Math1CheckState.Idle)
     val state: StateFlow<Math1CheckState> = _state.asStateFlow()
-    private var lastAttemptAt = 0L
     private var checking = false
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    /**
+     * Background check: honours the persisted 6 h cooldown (survives restarts).
+     * [force] is the user's "Check for Updates" action: it bypasses the cooldown and is only
+     * debounced for a few seconds to prevent tap-spam against GitHub's rate limit.
+     */
     suspend fun refresh(ctx: Context, force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (checking || (!force && now - lastAttemptAt < MIN_RETRY_INTERVAL_MS)) return
+        val since = now - Store.lastUpdateCheck // negative if the clock moved back: allow the check
+        if (checking) return
+        if (force) { if (since in 0 until MANUAL_DEBOUNCE_MS) return }
+        else if (since in 0 until MIN_RETRY_INTERVAL_MS) return
         checking = true
-        lastAttemptAt = now
+        Store.lastUpdateCheck = now
+        val previous = _state.value
         _state.value = Math1CheckState.Checking
         try {
-            _state.value = check(ctx)
+            val result = check(ctx)
+            _state.value = result
+            if (result is Math1CheckState.Success) cache(result.stable)
+        } catch (e: CancellationException) {
+            _state.value = previous
+            throw e
         } finally {
             checking = false
+        }
+    }
+
+    /** Manual check that is not tied to a screen's lifecycle, so leaving the screen cannot cancel it. */
+    fun checkNowAsync(ctx: Context) {
+        val app = ctx.applicationContext
+        appScope.launch { refresh(app, force = true) }
+    }
+
+    /** Re-shows an update found by an earlier check, so the cooldown never hides a known update. */
+    fun restoreCached(ctx: Context) {
+        val raw = Store.updateCache ?: return
+        val installed = Updater.installedVersionCode(ctx)
+        val r = runCatching {
+            val o = JSONObject(raw)
+            Math1Release(
+                o.getString("n"), o.getInt("c"), o.optString("v").takeIf { it.isNotBlank() }, o.optString("notes"),
+                o.getString("u"), o.optString("sha").takeIf { it.isNotBlank() },
+                if (o.has("sz")) o.getLong("sz") else null, o.optString("pub").takeIf { it.isNotBlank() },
+            )
+        }.getOrNull()
+        if (r == null || r.versionCode.toLong() <= installed || !r.downloadUrl.startsWith("https://")) {
+            Store.updateCache = null; return
+        }
+        _state.value = Math1CheckState.Success(r, null)
+    }
+
+    private fun cache(r: Math1Release?) {
+        Store.updateCache = r?.let {
+            JSONObject().put("n", it.versionName).put("c", it.versionCode).put("v", it.vVersion ?: "")
+                .put("notes", it.releaseNotes).put("u", it.downloadUrl).put("sha", it.sha256 ?: "")
+                .apply { it.sizeBytes?.let { s -> put("sz", s) } }.put("pub", it.publishedAt ?: "").toString()
         }
     }
 

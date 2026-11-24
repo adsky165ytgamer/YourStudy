@@ -7,13 +7,13 @@
   },
   "appUpdate": {
     "enabled": true,
-    "latestVersionCode": 7,
-    "minSupportedVersionCode": 1,
-    "versionName": "5.5.0",
-    "forceUpdate": false,
-    "changelog": "Added server-driven controls and Voice Notes refinements.",
-    "apkUrl": "https://github.com/adsky165ytgamer/YourStudy/releases/download/v5.5.0/YourStudy-v5.5.0-release-signed.apk",
-    "sha256": "09c6695a0e5053d09a256866b8797b6b0c29ea4993d97e10c90947a4c6f5d006"
+    "latestVersionCode": 8,
+    "minSupportedVersionCode": 8,
+    "versionName": "6",
+    "forceUpdate": true,
+    "changelog": "Version 6: focus music, custom break timer, Quick Settings tile, session recovery, manual update check, and signer verification.",
+    "apkUrl": "https://github.com/adsky165ytgamer/YourStudy/releases/download/v6/YourStudy-v6-release-signed.apk",
+    "sha256": "d46f70a0f4651c7ebf21c46fe7c12386dd6bfb9ed32b6cf679337cf5de48ff12"
   },
   "features": {
     "voice_notes": {
@@ -28,7 +28,9 @@
       "locked": false,
       "minMinutes": 1,
       "maxMinutes": 240,
-      "strictGuard": true
+      "strictGuard": true,
+      "minBreakMinutes": 1,
+      "maxBreakMinutes": 30
     },
     "family_pairing": {
       "enabled": true,
@@ -56,6 +58,17 @@
       "enabled": true,
       "locked": false,
       "allowAutoLockOnBypass": true
+    },
+    "focus_music": {
+      "enabled": true,
+      "locked": false,
+      "badge": "NEW",
+      "lockReason": "Focus music is temporarily disabled."
+    },
+    "quick_tile": {
+      "enabled": true,
+      "locked": false,
+      "lockReason": "The Quick Settings tile is temporarily disabled."
     }
   },
   "uiControls": {
@@ -81,6 +94,13 @@
       "interceptPopupId": null
     },
     "section_wellbeing": {
+      "visible": true,
+      "enabled": true,
+      "label": null,
+      "badge": null,
+      "interceptPopupId": null
+    },
+    "section_focus_music": {
       "visible": true,
       "enabled": true,
       "label": null,

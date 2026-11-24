@@ -2,6 +2,7 @@ package com.yourstudy.app
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -15,6 +16,9 @@ import java.security.MessageDigest
 
 /** Direct APK self-update. Updates only install if signed with the same keystore as the installed build. */
 object Updater {
+    /** SHA-256 of the official `yourstudy` release signing certificate. */
+    const val OFFICIAL_SIGNER_SHA256 = "1cd0da51dbb06bf33a1714490005eddb17ad0e43e199d009f85939c84716025c"
+
     fun installedVersionCode(ctx: Context): Long = runCatching {
         val info = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
         if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else {
@@ -74,8 +78,21 @@ object Updater {
             }
             check(downloadedCode == expectedVersionCode) { "Downloaded APK version does not match MATH1 metadata" }
             check(downloadedCode > installedVersionCode(ctx)) { "Downloaded APK is not newer than the installed version" }
+            verifySigner(ctx, f)
         } finally { c.disconnect() }
         f
+    }
+
+    /** Rejects (and deletes) any APK whose signing certificate is not the official release key. */
+    private fun verifySigner(ctx: Context, f: File) {
+        val signers = ctx.packageManager
+            .getPackageArchiveInfo(f.absolutePath, PackageManager.GET_SIGNING_CERTIFICATES)
+            ?.signingInfo?.apkContentsSigners
+        val ok = signers != null && signers.any { sig ->
+            MessageDigest.getInstance("SHA-256").digest(sig.toByteArray())
+                .joinToString("") { "%02x".format(it) }.equals(OFFICIAL_SIGNER_SHA256, ignoreCase = true)
+        }
+        if (!ok) { f.delete(); error("APK is not signed with the official YourStudy key") }
     }
 
     fun install(ctx: Context, f: File) {

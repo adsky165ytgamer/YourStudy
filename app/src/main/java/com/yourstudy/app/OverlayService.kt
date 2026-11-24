@@ -67,6 +67,7 @@ class OverlayService : Service() {
         wm = getSystemService(WindowManager::class.java)
         if (loop == null) {
             lastPhase = Session.ui.value.phase
+            FocusMusic.onServiceStart(this, lastPhase)
             loop = scope.launch { while (isActive) { step(); delay(250) } }
         }
         return START_NOT_STICKY
@@ -83,6 +84,7 @@ class OverlayService : Service() {
         val justCompleted = p == Phase.COMPLETED && lastPhase != Phase.COMPLETED
         if (lastPhase == Phase.FOCUSING && p == Phase.BREAK_5M) { if (!launchRealLauncher(this)) openLauncher() }
         if (breakEnded || justCompleted) openLauncher()
+        FocusMusic.onPhase(this, lastPhase, p)
         lastPhase = p
         if (p == Phase.IDLE || p == Phase.COMPLETED) { hidePill(); stopSelf() }
     }

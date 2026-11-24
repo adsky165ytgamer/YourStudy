@@ -13,6 +13,9 @@ class YourStudyApp : Application() {
         WellbeingStore.init(this)
         WellbeingTracker.init(this)
         AdminControl.init(this)
+        FocusMusic.init(this)
+        Math1UpdateClient.restoreCached(this)
+        Session.restore(this)
         RemoteControl.refresh(force = true)
         android.util.Log.d("YourStudy", "originalLauncher=" + com.yourstudy.app.ui.realLauncher(this))
     }

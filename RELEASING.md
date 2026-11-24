@@ -47,3 +47,15 @@ Copy the complete output into the GitHub Release body and upload only that APK. 
 Check that the repository is public, the release is not a draft, the tag points to the intended `main` commit, the APK is signed with the official `yourstudy` keystore, and the release contains exactly one APK. The Android client also verifies HTTPS, package identity, version code, and the optional MATH1 SHA-256 before opening Android's package installer.
 
 Stable builds query MATH1's `stable` result. Beta builds may explicitly opt in to the `beta` result; alpha releases are never offered. MATH1 errors, including rate limits and GitHub outages, are not treated as “up to date.”
+
+## Version 6
+
+```bash
+python3 tools/generate-math1-release-notes.py \
+  /path/to/YourStudy-v6-release-signed.apk \
+  --version-name 6 --version-code 8 --min-sdk 31 --compile-sdk 36 --target-sdk 36 \
+  --channel stable \
+  --notes "YourStudy 6: custom break length, focus music with dimmed cover, Quick Settings tile, manual update check."
+```
+
+Tag the release `v6`, upload only the signed APK, then put its SHA-256 into `control-plane/control.json` (`appUpdate.sha256`) before setting `appUpdate.enabled` to `true`. The app also checks that the APK is signed with the official certificate (SHA-256 `1cd0da51dbb06bf33a1714490005eddb17ad0e43e199d009f85939c84716025c`) before opening the installer.

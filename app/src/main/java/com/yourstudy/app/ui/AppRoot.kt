@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -55,7 +56,7 @@ fun AppRoot() {
     Surface(color = MaterialTheme.colorScheme.background) {
         AnimatedContent(
             targetState = s.phase,
-            transitionSpec = { fadeIn(Motion.spec()) togetherWith fadeOut(Motion.spec()) },
+            transitionSpec = { (fadeIn(Motion.spec()) + scaleIn(Motion.spec(), 0.96f)) togetherWith fadeOut(Motion.spec()) },
             label = "phase",
         ) { phase ->
             when (phase) {

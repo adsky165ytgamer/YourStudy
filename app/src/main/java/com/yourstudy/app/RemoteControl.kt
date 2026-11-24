@@ -37,6 +37,8 @@ data class FeatureControl(
     val doomScrollThreshold: Int = 12,
     val doomScrollWindowSec: Int = 45,
     val allowAutoLockOnBypass: Boolean = true,
+    val minBreakMinutes: Int = 1,
+    val maxBreakMinutes: Int = 30,
 )
 
 data class UiControlOverride(
@@ -128,6 +130,13 @@ object RemoteControl {
         return lo..f.maxMinutes.coerceIn(lo, 1440)
     }
 
+    /** Allowed custom break lengths (minutes), from focus_mode.minBreakMinutes / maxBreakMinutes. */
+    fun breakRange(): IntRange {
+        val f = _config.value.feature("focus_mode")
+        val lo = f.minBreakMinutes.coerceIn(1, 120)
+        return lo..f.maxBreakMinutes.coerceIn(lo, 120)
+    }
+
     private fun fetch(): String? {
         val bust = CONTROL_URL + (if ('?' in CONTROL_URL) "&" else "?") + "t=" + System.currentTimeMillis()
         val c = URL(bust).openConnection() as HttpURLConnection
@@ -166,6 +175,7 @@ object RemoteControl {
                     x.optBoolean("strictGuard", d.strictGuard),
                     x.optInt("doomScrollThreshold", d.doomScrollThreshold), x.optInt("doomScrollWindowSec", d.doomScrollWindowSec),
                     x.optBoolean("allowAutoLockOnBypass", d.allowAutoLockOnBypass),
+                    x.optInt("minBreakMinutes", d.minBreakMinutes), x.optInt("maxBreakMinutes", d.maxBreakMinutes),
                 )
             }
         }

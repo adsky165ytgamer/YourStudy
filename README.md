@@ -8,3 +8,11 @@ First run: grant Display over other apps, enable the "Your Study" accessibility 
 The app checks the public `adsky165ytgamer/YourStudy` GitHub Releases repository through the MATH1 API. A successful check with no newer release is different from an API or network error; errors are retained as a retry/offline state rather than being reported as up to date. When a release is available, the app displays the publisher's plain-text notes, downloads the HTTPS GitHub asset off the main thread, verifies the optional SHA-256, validates the package and version code, and hands the file to Android's package installer for user confirmation.
 
 Release authors must publish exactly one APK and include the MATH1 metadata block. See [RELEASING.md](RELEASING.md) for the required format and generation helper.
+
+## Version 6
+
+- **Custom break length** per session (default 5 min, bounded by `focus_mode.minBreakMinutes` / `maxBreakMinutes`).
+- **Focus music:** pick audio files; they play with focus, pause on breaks, stop when the session ends. The track's cover is shown dimmed behind the timer.
+- **Quick Settings tile:** start focus, see the countdown, or resume from a break.
+- **Check for Updates** (Tools): a manual check that bypasses the 6-hour background cooldown.
+- Active sessions now survive the app process being killed.

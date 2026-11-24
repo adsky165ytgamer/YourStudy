@@ -12,8 +12,8 @@ android {
         applicationId = "com.yourstudy.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 7
-        versionName = "5.5.0"
+        versionCode = 8
+        versionName = "6"
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions {

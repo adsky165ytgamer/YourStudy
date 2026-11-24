@@ -83,6 +83,35 @@ object Store {
         prefs.edit().putStringSet("shown", (prefs.getStringSet("shown", emptySet()) ?: emptySet()) + id).apply()
     }
 
+    // ---- v6: break length, focus music, session snapshot, update-check state ----
+    var breakMinutes: Int
+        get() = prefs.getInt("breakMin", 5)
+        set(v) { prefs.edit().putInt("breakMin", v).apply() }
+
+    var musicQueue: List<String>
+        get() = runCatching {
+            val a = JSONArray(prefs.getString("musicQ", "[]")); (0 until a.length()).map { a.getString(it) }
+        }.getOrDefault(emptyList())
+        set(v) { prefs.edit().putString("musicQ", JSONArray(v).toString()).apply() }
+
+    var musicAutoPlay: Boolean
+        get() = prefs.getBoolean("musicAuto", true)
+        set(v) { prefs.edit().putBoolean("musicAuto", v).apply() }
+
+    /** Active focus/break session, so process death does not silently end a session. */
+    var sessionSnapshot: String?
+        get() = prefs.getString("sessionSnap", null)
+        set(v) { prefs.edit().apply { if (v == null) remove("sessionSnap") else putString("sessionSnap", v) }.apply() }
+
+    /** Wall-clock time of the last MATH1 attempt, persisted so the 6 h cooldown survives restarts. */
+    var lastUpdateCheck: Long
+        get() = prefs.getLong("updChk", 0L)
+        set(v) { prefs.edit().putLong("updChk", v).apply() }
+
+    var updateCache: String?
+        get() = prefs.getString("updCache", null)
+        set(v) { prefs.edit().apply { if (v == null) remove("updCache") else putString("updCache", v) }.apply() }
+
     // ---- Voice notes (offline, local) ----
     private val _notes = MutableStateFlow<List<VoiceNote>>(emptyList())
     val notes: StateFlow<List<VoiceNote>> = _notes.asStateFlow()

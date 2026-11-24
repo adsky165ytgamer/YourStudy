@@ -1,5 +1,6 @@
 package com.yourstudy.app.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -38,6 +41,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yourstudy.app.FocusMusic
 import com.yourstudy.app.RemoteControl
 import com.yourstudy.app.Session
 import com.yourstudy.app.SessionUi
@@ -62,6 +66,14 @@ private fun QuickNoteButton(onOpen: () -> Unit) {
     }
 }
 
+/** Ring track colour that adapts when a dimmed cover is behind it. */
+@Composable
+private fun ringTrack(): Color {
+    val music by FocusMusic.ui.collectAsStateWithLifecycle()
+    val target = if (music.cover != null) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.secondaryContainer
+    return animateColorAsState(target, Motion.spec(), label = "track").value
+}
+
 @Composable
 fun FocusScreen(s: SessionUi) {
     val ctx = LocalContext.current
@@ -71,27 +83,31 @@ fun FocusScreen(s: SessionUi) {
     }
     val target = if (s.plannedMs > 0) (s.focusRemainingMs.toFloat() / s.plannedMs).coerceIn(0f, 1f) else 0f
     val fraction by animateFloatAsState(target, Motion.spec(), label = "ring")
+    val track = ringTrack()
 
-    Column(Modifier.fillMaxSize().systemBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(260.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                progress = { fraction }, modifier = Modifier.fillMaxSize(), strokeWidth = 16.dp,
-                trackColor = MaterialTheme.colorScheme.secondaryContainer, strokeCap = StrokeCap.Round,
-            )
-            Text(fmt(s.focusRemainingMs), style = timerStyle(56.sp))
-        }
-        Spacer(Modifier.height(16.dp))
-        LazyVerticalGrid(
-            GridCells.Adaptive(88.dp), Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) { items(apps, key = { it.pkg }) { AppTile(it) } }
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            QuickNoteButton { note = true }
-            HoldPill(
-                label = if (s.breakUsed) "Break used" else "Hold for break",
-                enabled = !s.breakUsed, onTrigger = { Session.startBreak() }, modifier = Modifier.weight(1f),
-            )
+    CoverBackdrop {
+        Column(Modifier.fillMaxSize().systemBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(260.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { fraction }, modifier = Modifier.fillMaxSize(), strokeWidth = 16.dp,
+                    trackColor = track, strokeCap = StrokeCap.Round,
+                )
+                Text(fmt(s.focusRemainingMs), style = timerStyle(56.sp))
+            }
+            Spacer(Modifier.height(16.dp))
+            MusicBar(Modifier.fillMaxWidth().padding(bottom = 12.dp))
+            LazyVerticalGrid(
+                GridCells.Adaptive(88.dp), Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) { items(apps, key = { it.pkg }) { AppTile(it) } }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                QuickNoteButton { note = true }
+                HoldPill(
+                    label = if (s.breakUsed) "Break used" else "Hold for ${s.breakTotalMs / 60_000L}m break",
+                    enabled = !s.breakUsed, onTrigger = { Session.startBreak() }, modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
     if (note) QuickNoteSheet { note = false }
@@ -103,32 +119,35 @@ fun BreakScreen(s: SessionUi) {
     var note by remember { mutableStateOf(false) }
     var giveUp by remember { mutableStateOf(false) }
     val apps by produceState(emptyList<AppEntry>(), Unit) { value = withContext(Dispatchers.IO) { loadLaunchable(ctx) } }
-    val target = (s.breakRemainingMs.toFloat() / Session.BREAK_MS).coerceIn(0f, 1f)
+    val target = if (s.breakTotalMs > 0) (s.breakRemainingMs.toFloat() / s.breakTotalMs).coerceIn(0f, 1f) else 0f
     val fraction by animateFloatAsState(target, Motion.spec(), label = "ring")
+    val track = ringTrack()
 
-    Column(Modifier.fillMaxSize().systemBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(200.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                progress = { fraction }, modifier = Modifier.fillMaxSize(), strokeWidth = 14.dp,
-                color = MaterialTheme.colorScheme.tertiary, trackColor = MaterialTheme.colorScheme.tertiaryContainer,
-                strokeCap = StrokeCap.Round,
+    CoverBackdrop {
+        Column(Modifier.fillMaxSize().systemBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(200.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { fraction }, modifier = Modifier.fillMaxSize(), strokeWidth = 14.dp,
+                    color = MaterialTheme.colorScheme.tertiary, trackColor = track, strokeCap = StrokeCap.Round,
+                )
+                Text(fmt(s.breakRemainingMs), style = timerStyle(44.sp))
+            }
+            Text(
+                "Focus " + fmt(s.focusRemainingMs), style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+                color = LocalContentColor.current.copy(alpha = 0.7f), modifier = Modifier.padding(vertical = 12.dp),
             )
-            Text(fmt(s.breakRemainingMs), style = timerStyle(44.sp))
+            MusicBar(Modifier.fillMaxWidth().padding(bottom = 12.dp))
+            LazyVerticalGrid(
+                GridCells.Adaptive(88.dp), Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) { items(apps, key = { it.pkg }) { AppTile(it) } }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                QuickNoteButton { note = true }
+                PressPill(onClick = { Session.endBreak() }, modifier = Modifier.weight(1f)) { PillLabel("Resume") }
+            }
+            TextButton(onClick = { giveUp = true }) { Text("End session") }
         }
-        Text(
-            "Focus " + fmt(s.focusRemainingMs), style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp),
-        )
-        LazyVerticalGrid(
-            GridCells.Adaptive(88.dp), Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) { items(apps, key = { it.pkg }) { AppTile(it) } }
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            QuickNoteButton { note = true }
-            PressPill(onClick = { Session.endBreak() }, modifier = Modifier.weight(1f)) { PillLabel("Resume") }
-        }
-        TextButton(onClick = { giveUp = true }) { Text("End session") }
     }
     if (note) QuickNoteSheet { note = false }
     if (giveUp) {

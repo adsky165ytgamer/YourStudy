@@ -7,7 +7,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import org.json.JSONArray
+import org.json.JSONObject
 
+/** BREAK_5M is the break phase for any configured length (name kept for source compatibility). */
 enum class Phase { IDLE, FOCUSING, BREAK_5M, COMPLETED }
 
 data class SessionUi(
@@ -18,14 +21,17 @@ data class SessionUi(
     val breakUsed: Boolean = false,
     val essential: Set<String> = emptySet(),
     val lastFocusedMs: Long = 0,
+    val breakTotalMs: Long = Session.DEFAULT_BREAK_MS,
 )
 
 /**
  * Single source of truth. All timing uses the monotonic SystemClock.elapsedRealtime(),
  * so wall-clock changes can never shift a timer. Mutated on the main thread only.
+ * An active session is snapshotted so it survives process death (see [restore]).
  */
 object Session {
-    const val BREAK_MS = 5 * 60_000L
+    const val DEFAULT_BREAK_MS = 5 * 60_000L
+    const val BREAK_MS = DEFAULT_BREAK_MS
 
     private val _ui = MutableStateFlow(SessionUi())
     val ui: StateFlow<SessionUi> = _ui.asStateFlow()
@@ -39,13 +45,15 @@ object Session {
     private var startedWall = 0L
     val sessionStartedAt: Long get() = startedWall
 
-    fun start(ctx: Context, minutes: Int, packages: Set<String>) {
+    fun start(ctx: Context, minutes: Int, packages: Set<String>, breakMinutes: Int = Store.breakMinutes) {
         val ms = minutes * 60_000L
+        val breakMs = breakMinutes.coerceIn(RemoteControl.breakRange()) * 60_000L
         focusEndAt = SystemClock.elapsedRealtime() + ms
         startedWall = System.currentTimeMillis()
-        _ui.value = SessionUi(Phase.FOCUSING, ms, ms, 0, false, packages)
+        _ui.value = SessionUi(Phase.FOCUSING, ms, ms, 0, false, packages, breakTotalMs = breakMs)
         WellbeingTracker.onStart(packages)
-        ctx.startForegroundService(Intent(ctx, OverlayService::class.java))
+        persist()
+        ensureService(ctx)
     }
 
     fun startBreak() {
@@ -53,12 +61,13 @@ object Session {
         if (u.phase != Phase.FOCUSING || u.breakUsed) return
         val now = SystemClock.elapsedRealtime()
         pausedFocusRemainingMs = (focusEndAt - now).coerceAtLeast(0)
-        breakEndAt = now + BREAK_MS
+        breakEndAt = now + u.breakTotalMs
         WellbeingTracker.onBreak(true)
         _ui.value = u.copy(
             phase = Phase.BREAK_5M, breakUsed = true,
-            breakRemainingMs = BREAK_MS, focusRemainingMs = pausedFocusRemainingMs,
+            breakRemainingMs = u.breakTotalMs, focusRemainingMs = pausedFocusRemainingMs,
         )
+        persist()
     }
 
     fun endBreak() {
@@ -69,6 +78,7 @@ object Session {
         _ui.value = u.copy(
             phase = Phase.FOCUSING, breakRemainingMs = 0, focusRemainingMs = pausedFocusRemainingMs,
         )
+        persist()
     }
 
     fun tick() {
@@ -93,7 +103,16 @@ object Session {
         finish(completed = false)
     }
 
-    fun reset() { _ui.value = SessionUi() }
+    fun reset() { _ui.value = SessionUi(); persist() }
+
+    /** Starts the timer service if a session is active. Safe to call repeatedly; never throws. */
+    fun ensureService(ctx: Context) {
+        val p = _ui.value.phase
+        if (p != Phase.FOCUSING && p != Phase.BREAK_5M) return
+        // Background starts can be refused (ForegroundServiceStartNotAllowedException); the next
+        // MainActivity.onResume retries while the app is visible.
+        runCatching { ctx.startForegroundService(Intent(ctx, OverlayService::class.java)) }
+    }
 
     private fun finish(completed: Boolean) {
         val u = _ui.value
@@ -107,5 +126,54 @@ object Session {
         _ui.value = if (completed)
             u.copy(phase = Phase.COMPLETED, focusRemainingMs = 0, breakRemainingMs = 0, lastFocusedMs = focused)
         else SessionUi()
+        persist()
+    }
+
+    // ------------------------------------------------------------ process-death safety
+
+    private fun persist() {
+        val u = _ui.value
+        if (u.phase != Phase.FOCUSING && u.phase != Phase.BREAK_5M) { Store.sessionSnapshot = null; return }
+        val nowE = SystemClock.elapsedRealtime()
+        val nowW = System.currentTimeMillis()
+        val activeEndE = if (u.phase == Phase.FOCUSING) focusEndAt else breakEndAt
+        Store.sessionSnapshot = JSONObject()
+            .put("phase", u.phase.name).put("planned", u.plannedMs).put("breakTotal", u.breakTotalMs)
+            .put("breakUsed", u.breakUsed).put("essential", JSONArray(u.essential.toList()))
+            .put("focusEndE", focusEndAt).put("breakEndE", breakEndAt).put("paused", pausedFocusRemainingMs)
+            .put("savedE", nowE).put("endW", nowW + (activeEndE - nowE)).put("startedWall", startedWall)
+            .toString()
+    }
+
+    /**
+     * Rebuilds an active session after the process was killed. If the device did not reboot the saved
+     * monotonic deadlines are still valid; after a reboot the monotonic clock restarted, so the wall-clock
+     * deadline is converted instead. An already-expired session is finalised immediately.
+     */
+    fun restore(ctx: Context) {
+        if (_ui.value.phase != Phase.IDLE) return
+        val raw = Store.sessionSnapshot ?: return
+        val o = runCatching { JSONObject(raw) }.getOrNull()
+        val phase = o?.let { runCatching { Phase.valueOf(it.getString("phase")) }.getOrNull() }
+        if (o == null || (phase != Phase.FOCUSING && phase != Phase.BREAK_5M)) { Store.sessionSnapshot = null; return }
+
+        val nowE = SystemClock.elapsedRealtime()
+        val rebooted = nowE < o.getLong("savedE")
+        val activeEndE = if (rebooted) nowE + (o.getLong("endW") - System.currentTimeMillis())
+        else if (phase == Phase.FOCUSING) o.getLong("focusEndE") else o.getLong("breakEndE")
+        pausedFocusRemainingMs = o.getLong("paused")
+        startedWall = o.getLong("startedWall")
+        if (phase == Phase.FOCUSING) focusEndAt = activeEndE else breakEndAt = activeEndE
+        val essential = o.getJSONArray("essential").let { a -> (0 until a.length()).map { a.getString(it) }.toSet() }
+        _ui.value = SessionUi(
+            phase = phase, plannedMs = o.getLong("planned"),
+            focusRemainingMs = if (phase == Phase.FOCUSING) (focusEndAt - nowE).coerceAtLeast(0) else pausedFocusRemainingMs,
+            breakRemainingMs = if (phase == Phase.BREAK_5M) (breakEndAt - nowE).coerceAtLeast(0) else 0,
+            breakUsed = o.getBoolean("breakUsed"), essential = essential, breakTotalMs = o.getLong("breakTotal"),
+        )
+        WellbeingTracker.onStart(essential)
+        if (phase == Phase.BREAK_5M) WellbeingTracker.onBreak(true)
+        tick() // finalises an expired session right away so the guard never blocks on a dead timer
+        ensureService(ctx)
     }
 }

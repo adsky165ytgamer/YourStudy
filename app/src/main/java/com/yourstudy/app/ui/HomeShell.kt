@@ -115,6 +115,7 @@ fun HomeShell() {
     var distractionOpen by rememberSaveable { mutableStateOf(false) }
     var tagPicker by remember { mutableStateOf(false) }
     var minutes by rememberSaveable { mutableIntStateOf(Store.minutes) }
+    var breakMin by rememberSaveable { mutableIntStateOf(Store.breakMinutes) }
     var selected by remember { mutableStateOf(Store.essentials) }
     var refresh by remember { mutableIntStateOf(0) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { refresh++ }
@@ -132,6 +133,11 @@ fun HomeShell() {
     val lo = range.first
     val hi = range.last
     LaunchedEffect(lo, hi) { minutes = minutes.coerceIn(lo, hi) }
+    val breakRange = RemoteControl.breakRange()
+    LaunchedEffect(breakRange.first, breakRange.last) {
+        val b = breakMin.coerceIn(breakRange)
+        if (b != breakMin) { breakMin = b; Store.breakMinutes = b }
+    }
 
     val shown = if (tab == 3 && !famCtl.enabled) 0 else tab
     LaunchedEffect(shown, voiceOpen, scheduleOpen, plannerOpen, wellbeingOpen, distractionOpen) {
@@ -260,6 +266,7 @@ fun HomeShell() {
                     apps = apps, selected = valid,
                     next = nextUp, onSchedule = { requestSchedule(cfg) { scheduleOpen = true } },
                     tag = tagLabel, onTag = if (plannerOn) ({ tagPicker = true }) else null,
+                    breakMin = breakMin, breakRange = breakRange, onBreakMin = { breakMin = it; Store.breakMinutes = it },
                     onToggle = { pkg ->
                         selected = if (pkg in valid) valid - pkg else valid + pkg
                         Store.essentials = selected
@@ -295,10 +302,12 @@ private fun FocusTab(
     apps: List<AppEntry>, selected: Set<String>, onToggle: (String) -> Unit,
     next: String?, onSchedule: () -> Unit,
     tag: String, onTag: (() -> Unit)?,
+    breakMin: Int, breakRange: IntRange, onBreakMin: (Int) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
     var typing by remember { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
+    var breakDialog by remember { mutableStateOf(false) }
     val filtered = remember(apps, query) { apps.filter { it.label.contains(query.trim(), ignoreCase = true) } }
     val progress by animateFloatAsState(if (hi > lo) (minutes - lo).toFloat() / (hi - lo) else 1f, Motion.spec(), label = "dur")
 
@@ -348,6 +357,10 @@ private fun FocusTab(
                 AssistChip(onClick = open, label = { Text(tag, maxLines = 1, overflow = TextOverflow.Ellipsis) }, leadingIcon = { Icon(Icons.Default.Create, null) }, shape = CircleShape)
             }
         }
+        item {
+            AssistChip(onClick = { breakDialog = true }, label = { Text("Break ${breakMin}m") }, shape = CircleShape)
+        }
+        item { MusicRow() }
         next?.let { label ->
             item {
                 AssistChip(onClick = onSchedule, label = { Text(label) }, leadingIcon = { Icon(Icons.Default.DateRange, null) }, shape = CircleShape)
@@ -406,6 +419,15 @@ private fun FocusTab(
         }
     }
 
+    if (breakDialog) {
+        AlertDialog(
+            onDismissRequest = { breakDialog = false },
+            title = { Text("Break") },
+            text = { DurationStepper(value = breakMin, range = breakRange, onChange = onBreakMin, quick = false) },
+            confirmButton = { TextButton(onClick = { breakDialog = false }) { Text("Done") } },
+        )
+    }
+
     if (typing) {
         var text by remember { mutableStateOf(minutes.toString()) }
         AlertDialog(
@@ -452,11 +474,13 @@ private fun ToolsTab(
         if (plannerShown) ToolCard(Icons.Default.Check, pUi.label ?: "Planner", pUi.badge ?: pF.badge, pF.locked, pUi.enabled, onPlanner)
         if (wellbeingShown) ToolCard(Icons.Default.Favorite, wUi.label ?: "Well-Being", wUi.badge ?: wF.badge, wF.locked, wUi.enabled, onWellbeing)
         if (distractionShown) ToolCard(Icons.Default.Warning, dUi.label ?: "Distraction", dUi.badge ?: dF.badge, dF.locked, dUi.enabled, onDistraction)
+        UpdatesCard()
+        QuickTileCard()
     }
 }
 
 @Composable
-private fun ToolCard(icon: ImageVector, label: String, badge: String?, locked: Boolean, enabled: Boolean, onClick: () -> Unit) {
+fun ToolCard(icon: ImageVector, label: String, badge: String?, locked: Boolean, enabled: Boolean, onClick: () -> Unit) {
     Card(
         onClick = onClick, enabled = enabled, shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),

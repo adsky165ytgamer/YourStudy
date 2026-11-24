@@ -42,6 +42,6 @@ class MainActivity : ComponentActivity() {
         i.removeExtra(StudyPlanner.EXTRA_TASK_ID)
     }
 
-    override fun onResume() { super.onResume(); Session.appVisible = true; RemoteControl.refresh() }
+    override fun onResume() { super.onResume(); Session.appVisible = true; RemoteControl.refresh(); Session.ensureService(this) }
     override fun onPause() { super.onPause(); Session.appVisible = false }
 }
